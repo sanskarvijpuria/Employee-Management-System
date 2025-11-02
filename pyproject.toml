@@ -1,0 +1,13 @@
+[tool.ruff]
+# Maximum line length
+line-length = 99
+
+[tool.ruff.lint]
+# Select the rules you want to enable. 'E', 'F' are common Flake8/Pyflakes errors.
+# 'I' enables the isort rules for import sorting.
+select = ["E", "F", "I", "W", "B", "UP"] 
+ignore = [] # Add rules to ignore globally here
+
+[tool.ruff.format]
+# Ruff format defaults to Black-compatible style
+quote-style = "double"

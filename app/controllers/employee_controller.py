@@ -1,61 +1,127 @@
-from flask import Blueprint, jsonify, request
-from pydantic import ValidationError
-from app.services.employee_service import EmployeeService
+"""
+This module defines the Flask Blueprint and route handlers for employee-related API endpoints.
+It provides endpoints for creating, retrieving, updating, and deleting employees.
+All endpoints are documented and validated using FlaskPydanticSpec.
+"""
+
+from flask import Blueprint, request
+from flask_pydantic_spec import Request, Response
+
+from app.extensions import spec
 from app.schemas.employee_schema import (
+    DeleteEmployeeResponse,
     EmployeeCreate,
-    EmployeeUpdate,
+    EmployeeQueryParams,
     EmployeeResponse,
+    EmployeesListResponse,
+    EmployeeUpdate,
 )
+from app.services.employee_service import employee_service
 
-employee_bp = Blueprint("employee", __name__, url_prefix="/employees")
-
-
-@employee_bp.route("/", methods=["GET"])
-def get_all_employees():
-    employees = EmployeeService.list_employees()
-    result = [EmployeeResponse.model_validate(e).model_dump() for e in employees]
-    return jsonify(result), 200
-
-
-@employee_bp.route("/<int:emp_id>", methods=["GET"])
-def get_employee(emp_id):
-    employee = EmployeeService.get_employee(emp_id)
-    if not employee:
-        return jsonify({"error": "Employee not found"}), 404
-    data = EmployeeResponse.model_validate(employee).model_dump()
-    return jsonify(data), 200
+employee_bp = Blueprint("employee", __name__)
 
 
 @employee_bp.route("/", methods=["POST"])
+@spec.validate(
+    body=Request(EmployeeCreate),
+    resp=Response(HTTP_201=EmployeeResponse),
+    tags=["Employees"],
+)
 def create_employee():
-    try:
-        data = EmployeeCreate.model_validate(request.get_json())
-    except ValidationError as e:
-        return jsonify({"error": e.errors()}), 400
+    """
+    Create a new employee.
 
-    employee = EmployeeService.create_employee(data.model_dump())
-    response = EmployeeResponse.model_validate(employee)
-    return jsonify(response.model_dump()), 201
+    Request Body:
+        EmployeeCreate: Pydantic model with employee details.
+
+    Returns:
+        Tuple (dict, int): JSON response with created employee data and HTTP 201 status.
+    """
+    data = request.context.body.dict()  # type: ignore[attr-defined]
+    employee = employee_service.create_employee(data)
+    return EmployeeResponse.from_orm(employee).model_dump(mode="json"), 201
+
+
+@employee_bp.route("/", methods=["GET"])
+@spec.validate(
+    query=EmployeeQueryParams,
+    resp=Response(HTTP_200=EmployeesListResponse),
+    tags=["Employees"],
+)
+def get_all_employees():
+    """
+    List all employees with optional pagination and filtering.
+
+    Query Parameters:
+        EmployeeQueryParams: Pydantic model for filtering and pagination.
+
+    Returns:
+        Tuple (dict, int): JSON response with list of employees and HTTP 200 status.
+    """
+    filters = request.context.query.dict()  # type: ignore[attr-defined]
+    employees, total = employee_service.list_employees(filters)
+    response = EmployeesListResponse(
+        total=total,
+        employees=[EmployeeResponse.from_orm(e) for e in employees],
+    )
+    return response.model_dump(mode="json"), 200
+
+
+@employee_bp.route("/<int:emp_id>", methods=["GET"])
+@spec.validate(resp=Response(HTTP_200=EmployeeResponse), tags=["Employees"])
+def get_employee(emp_id):
+    """
+    Retrieve a specific employee by ID.
+
+    Args:
+        emp_id (int): Employee ID.
+
+    Returns:
+        Tuple (dict, int): JSON response with employee data and HTTP 200 status.
+    """
+    employee = employee_service.get_employee(emp_id)
+    return EmployeeResponse.from_orm(employee).model_dump(mode="json"), 200
 
 
 @employee_bp.route("/<int:emp_id>", methods=["PUT"])
+@spec.validate(
+    body=Request(EmployeeUpdate),
+    resp=Response(HTTP_200=EmployeeResponse),  # This should return the updated employee
+    tags=["Employees"],
+)
 def update_employee(emp_id):
-    try:
-        data = EmployeeUpdate.model_validate(request.get_json())
-    except ValidationError as e:
-        return jsonify({"error": e.errors()}), 400
+    """
+    Update an existing employee by ID.
 
-    updated = EmployeeService.update_employee(emp_id, data.model_dump(exclude_unset=True))
-    if not updated:
-        return jsonify({"error": "Employee not found"}), 404
+    Args:
+        emp_id (int): Employee ID.
+    Request Body:
+        EmployeeUpdate: Pydantic model with fields to update.
 
-    response = EmployeeResponse.model_validate(updated)
-    return jsonify(response.model_dump()), 200
+    Returns:
+        Tuple (dict, int): JSON response with updated employee data and HTTP 200 status.
+    """
+    data = request.context.body.dict(exclude_unset=True)  # type: ignore[attr-defined]
+    updated_employee = employee_service.update_employee(emp_id, data)
+    return EmployeeResponse.from_orm(updated_employee).model_dump(mode="json"), 200
 
 
 @employee_bp.route("/<int:emp_id>", methods=["DELETE"])
+@spec.validate(resp=Response(HTTP_200=DeleteEmployeeResponse), tags=["Employees"])
 def delete_employee(emp_id):
-    success = EmployeeService.delete_employee(emp_id)
-    if not success:
-        return jsonify({"error": "Employee not found"}), 404
-    return jsonify({"message": "Employee deleted"}), 200
+    """
+    Delete an employee by ID.
+
+    Args:
+        emp_id (int): Employee ID.
+
+    Returns:
+        Tuple (dict, int): JSON response with deletion message and HTTP 200 status.
+    """
+    employee_service.delete_employee(emp_id)
+    return (
+        DeleteEmployeeResponse(
+            message=f"Employee with ID {emp_id} deleted successfully."
+        ).model_dump(mode="json"),
+        200,
+    )
