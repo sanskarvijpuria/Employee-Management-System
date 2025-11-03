@@ -153,6 +153,35 @@ The API will be available at `http://localhost:5000`.
 
 ---
 
+## Running with Docker
+
+This project is fully containerized using Docker and Docker Compose, allowing for a consistent development and production environment.
+
+### Prerequisites
+
+- [Docker](https://www.docker.com/get-started)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+### Running the Application
+
+1.  **Build and Run the Containers:**
+    From the project root, run the following command:
+    ```sh
+    docker-compose up --build
+    ```
+    This command will:
+    - Build the Docker image for the Flask application based on the `Dockerfile`.
+    - Start the `web` (Flask app) and `db` (MySQL) services.
+    - Automatically run the `flask init-db` command to create the database tables.
+    - Start the Gunicorn web server.
+
+2.  **Access the Application:**
+    The API will be available at `http://localhost:5000`.
+
+### Stopping the Application
+
+To stop and remove the containers, networks, and volumes, run: `docker-compose down -v`
+
 ## Running Tests
 
 1. **Ensure all dependencies are installed.**
