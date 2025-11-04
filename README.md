@@ -12,6 +12,7 @@ A modular, production-ready RESTful API for managing employee records, built wit
 - [Database Schema](#database-schema)
 - [Setup & Installation](#setup--installation)
 - [Running the Application](#running-the-application)
+- [Running with Docker](#running-with-docker)
 - [Running Tests](#running-tests)
 - [Environment Variables](#environment-variables)
 - [License](#license)
